@@ -9,6 +9,8 @@ from sqlalchemy.engine.url import make_url
 from sqlalchemy_utils import database_exists, create_database
 from six.moves import input
 
+import ldap
+
 from CTFd.utils import cache, migrate, migrate_upgrade, migrate_stamp, update_check
 from CTFd import utils
 
@@ -91,6 +93,18 @@ def create_app(config='CTFd.config.Config'):
         app.jinja_loader = theme_loader
 
         from CTFd.models import db, Teams, Solves, Challenges, WrongKeys, Keys, Tags, Files, Tracking
+
+        # Connect and bind to the LDAP server 
+        l = ldap.initialize(app.config['LDAP_URI'])
+        l.bind(app.config['LDAP_BIND_DN'], app.config['LDAP_BIND_PASSWORD'])
+        app.ldap_instance = l
+
+        # Do a quick sanity check to be sure we can get users
+        r = l.search_s(app.config['LDAP_BASE_DN'], ldap.SCOPE_SUBTREE, attrlist=['uid', 'sn', 'givenname', 'userpassword'])
+        user_dn_list = [x for x in r if x[0][0:3] == 'cn=']
+        if (len(user_dn_list) == 0):
+            print('*** WARNING *** User list from LDAP is empty. Check your LDAP settings in config.py')
+
 
         url = make_url(app.config['SQLALCHEMY_DATABASE_URI'])
         if url.drivername == 'postgres':
