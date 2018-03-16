@@ -146,6 +146,26 @@ class Config(object):
     '''
     UPDATE_CHECK = True
 
+    '''
+    LDAP_URI is the URI to connect to for authenticating users against an LDAP 
+    '''
+    LDAP_URI = 'ldap://localhost'
+
+    '''
+    LDAP_BASE_DN is the start of the subtree to use for searching
+    '''
+    LDAP_BASE_DN = 'ou=users,dc=example,dc=com'
+
+    '''
+    LDAP_BIND_DN is the DN to use for connecting to the LDAP 
+    '''
+    LDAP_BIND_DN = 'cn=admin,dc=example,dc=com'
+
+    '''
+    LDAP_BIND_PASSWORD is the password to use for connecting to the LDAP 
+    '''
+    LDAP_BIND_PASSWORD = 'admin'
+
 
 class TestingConfig(Config):
     SECRET_KEY = 'AAAAAAAAAAAAAAAAAAAA'
