@@ -7,6 +7,8 @@ from flask import current_app as app, render_template, request, redirect, url_fo
 from itsdangerous import TimedSerializer, BadTimeSignature, Signer, BadSignature
 from passlib.hash import bcrypt_sha256
 
+from .ldapauth import validate_user
+
 from CTFd.models import db, Teams
 from CTFd import utils
 from CTFd.utils import ratelimit
@@ -216,6 +218,28 @@ def login():
     if request.method == 'POST':
         errors = []
         name = request.form['name']
+        password = request.form['password']
+
+        # Check the ldap for the user first
+        ldapuser = validate_user(name, password)
+        if ldapuser:
+            # Great there was a user in the ldap with those credentials. Let's see if there is a team in the database.
+            team = Teams.query.filter_by(name=ldapuser.team).first()
+            print(ldapuser.username)
+            print(ldapuser.team)
+            print(ldapuser.dn)
+            if team:
+                print(team)
+                session['username'] = team.name
+                session['id'] = team.id
+                session['admin'] = team.admin
+                session['nonce'] = utils.sha512(os.urandom(10))
+                db.session.close()
+                return redirect(url_for('challenges.challenges_view'))
+            
+
+
+
 
         # Check if the user submitted an email address or a team name
         if utils.check_email_format(name) is True:
