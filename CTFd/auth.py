@@ -231,9 +231,11 @@ def login():
             if team:
                 print(team)
                 session['username'] = team.name
+                session['ldap_username'] = ldapuser.username
                 session['id'] = team.id
                 session['admin'] = team.admin
                 session['nonce'] = utils.sha512(os.urandom(10))
+                session['is_ldap'] = True
                 db.session.close()
                 return redirect(url_for('challenges.challenges_view'))
             

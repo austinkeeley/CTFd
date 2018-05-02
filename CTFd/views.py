@@ -10,6 +10,9 @@ from CTFd.models import db, Teams, Solves, Awards, Files, Pages
 from CTFd.utils import cache, markdown
 from CTFd import utils
 
+from .ldapauth import change_password, validate_user
+
+
 views = Blueprint('views', __name__)
 
 
@@ -214,27 +217,70 @@ def team(teamid):
             json['solves'].append({'id': x.id, 'chal': x.chalid, 'team': x.teamid})
         return jsonify(json)
 
-
 @views.route('/profile', methods=['POST', 'GET'])
 def profile():
     if utils.authed():
         if request.method == "POST":
             errors = []
+            team = Teams.query.filter_by(id=session['id']).first()
+
+            if session.get('is_ldap'):
+                if ('password' in request.form.keys() and not len(request.form['password']) == 0):
+                    print(session['ldap_username'])
+                    print(request.form['confirm'])
+                    current_user = validate_user(session['ldap_username'], request.form['confirm'])
+                    if not current_user:
+                        errors.append('Current password was not correct')
+                    else:
+                        success = change_password(session['ldap_username'], request.form.get('confirm').strip(), request.form.get('password').strip())
+                        if not success:
+                            errors.append('Could not change password.')
+                return render_template('profile.html', name=team.name, errors=errors)
+
+
+            if ('password' in request.form.keys() and not len(request.form['password']) == 0) and \
+                    (not bcrypt_sha256.verify(request.form.get('confirm').strip(), team.password)):
+                errors.append("Your old password doesn't match what we have.")
+
+            if len(errors) > 0:
+                return render_template('profile.html', name=team.name, errors=errors)
+
+            return render_template('profile.html', name=team.name)
+
+
+        elif request.method == 'GET':
+            team = Teams.query.filter_by(id=session['id']).first()
+            name = team.name
+            return render_template('profile.html', name=name)
+    else:
+        return redirect(url_for('auth.login'))
+
+
+@views.route('/profile', methods=['POST', 'GET'])
+def old_profile():
+    if utils.authed():
+        if request.method == "POST":
+            errors = []
 
             name = request.form.get('name').strip()
-            email = request.form.get('email').strip()
-            website = request.form.get('website').strip()
-            affiliation = request.form.get('affiliation').strip()
-            country = request.form.get('country').strip()
+            #email = request.form.get('email').strip()
+            #website = request.form.get('website').strip()
+            #affiliation = request.form.get('affiliation').strip()
+            #country = request.form.get('country').strip()
 
             user = Teams.query.filter_by(id=session['id']).first()
+            print(user)
+
+            if not user:
+                print('Could not find user in DB. Might be LDAP?')
+                return render_template('profile.html')
 
             if not utils.get_config('prevent_name_change'):
                 names = Teams.query.filter_by(name=name).first()
                 name_len = len(request.form['name']) == 0
 
-            emails = Teams.query.filter_by(email=email).first()
-            valid_email = utils.check_email_format(email)
+            #emails = Teams.query.filter_by(email=email).first()
+            #valid_email = utils.check_email_format(email)
 
             if utils.check_email_format(name) is True:
                 errors.append('Team name cannot be an email address')
@@ -242,20 +288,19 @@ def profile():
             if ('password' in request.form.keys() and not len(request.form['password']) == 0) and \
                     (not bcrypt_sha256.verify(request.form.get('confirm').strip(), user.password)):
                 errors.append("Your old password doesn't match what we have.")
-            if not valid_email:
-                errors.append("That email doesn't look right")
+            #if not valid_email:
+            #    errors.append("That email doesn't look right")
             if not utils.get_config('prevent_name_change') and names and name != session['username']:
                 errors.append('That team name is already taken')
-            if emails and emails.id != session['id']:
-                errors.append('That email has already been used')
+            #if emails and emails.id != session['id']:
+            #    errors.append('That email has already been used')
             if not utils.get_config('prevent_name_change') and name_len:
                 errors.append('Pick a longer team name')
-            if website.strip() and not utils.validate_url(website):
-                errors.append("That doesn't look like a valid URL")
+            #if website.strip() and not utils.validate_url(website):
+            #    errors.append("That doesn't look like a valid URL")
 
             if len(errors) > 0:
-                return render_template('profile.html', name=name, email=email, website=website,
-                                       affiliation=affiliation, country=country, errors=errors)
+                return render_template('profile.html', name=name, errors=errors)
             else:
                 team = Teams.query.filter_by(id=session['id']).first()
                 if team.name != name:

@@ -1,6 +1,7 @@
 import base64
 from hashlib import md5
 import ldap
+from ldap import modlist
 import re
 
 from flask import current_app as app
@@ -42,3 +43,20 @@ def validate_user(username, password):
                     return ldapuser
 
     return None
+
+def change_password(username, old_password, new_password):
+    """Changes a user's password"""
+    # First be sure the old password is right
+    print(username)
+    print(old_password)
+    u = validate_user(username, old_password)
+    if not u:
+        print('Could not authenticate against old password')
+        return None
+
+   
+
+   
+
+   
+
